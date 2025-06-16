@@ -48,143 +48,143 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- CÁC HÀM XỬ LÝ SỰ KIỆN ---
     
-    // Sử dụng 'input' là đủ cho hầu hết các trình duyệt hiện đại
-    productTableBody.addEventListener('input', e => {
-        if (e.target.classList.contains('product-quantity') || e.target.classList.contains('product-price')) {
-            updateTotals();
-        }
-    });
-
-    productTableBody.addEventListener('click', e => {
-        if (e.target.classList.contains('btn-delete')) {
-            e.target.closest('tr').remove();
-            updateTotals();
-        }
-    });
-
-    productTableBody.addEventListener('change', e => {
-        if (e.target.classList.contains('product-image-upload')) {
-            const file = e.target.files[0];
-            const preview = e.target.nextElementSibling.nextElementSibling;
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = event => { preview.src = event.target.result; };
-                reader.readAsDataURL(file);
+    if (productTableBody) {
+        productTableBody.addEventListener('input', e => {
+            if (e.target.classList.contains('product-quantity') || e.target.classList.contains('product-price')) {
+                updateTotals();
             }
-        }
-    });
+        });
 
-    addProductBtn.addEventListener('click', () => {
-        addProductRow();
-        updateTotals();
-    });
+        productTableBody.addEventListener('click', e => {
+            if (e.target.classList.contains('btn-delete')) {
+                e.target.closest('tr').remove();
+                updateTotals();
+            }
+        });
+
+        productTableBody.addEventListener('change', e => {
+            if (e.target.classList.contains('product-image-upload')) {
+                const file = e.target.files[0];
+                const preview = e.target.nextElementSibling.nextElementSibling;
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = event => { preview.src = event.target.result; };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+    }
+
+    if (addProductBtn) {
+        addProductBtn.addEventListener('click', () => {
+            addProductRow();
+            updateTotals();
+        });
+    }
 
     // --- TÍCH HỢP GEMINI AI ---
-    geminiBtn.addEventListener('click', async () => {
-        const invoiceData = getInvoiceData();
-        if (!invoiceData.customerName || invoiceData.products.length === 0) {
-            alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm.');
-            return;
-        }
+    if (geminiBtn) {
+        geminiBtn.addEventListener('click', async () => {
+            const invoiceData = getInvoiceData();
+            if (!invoiceData.customerName || invoiceData.products.length === 0) {
+                alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm.');
+                return;
+            }
 
-        let prompt = `Khách hàng tên là "${invoiceData.customerName}". Họ đã mua các sản phẩm sau:\n`;
-        invoiceData.products.forEach(p => {
-            prompt += `- ${p.name} (số lượng: ${p.quantity})\n`;
-        });
-        prompt += `\nDựa trên thông tin này, hãy:
+            let prompt = `Khách hàng tên là "${invoiceData.customerName}". Họ đã mua các sản phẩm sau:\n`;
+            invoiceData.products.forEach(p => {
+                prompt += `- ${p.name} (số lượng: ${p.quantity})\n`;
+            });
+            prompt += `\nDựa trên thông tin này, hãy:
 1. Viết một lời cảm ơn ngắn gọn, thân thiện và chuyên nghiệp.
 2. Đề xuất 2 sản phẩm liên quan mà khách hàng có thể thích, kèm lý do ngắn gọn.`;
 
-        geminiResultDiv.innerHTML = '<p class="text-muted mb-0"><i class="fa-solid fa-spinner fa-spin"></i> AI đang suy nghĩ, vui lòng chờ...</p>';
-        geminiBtn.disabled = true;
+            geminiResultDiv.innerHTML = '<p class="text-muted mb-0"><i class="fa-solid fa-spinner fa-spin"></i> AI đang suy nghĩ, vui lòng chờ...</p>';
+            geminiBtn.disabled = true;
 
-        try {
-            const response = await fetch('/.netlify/functions/call-gemini', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
-            });
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: response.statusText }));
-                throw new Error(`Lỗi từ server: ${errorData.error || response.statusText}`);
+            try {
+                const response = await fetch('/.netlify/functions/call-gemini', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                    throw new Error(`Lỗi từ server: ${errorData.error || response.statusText}`);
+                }
+                const data = await response.json();
+                geminiResultDiv.textContent = data.text;
+            } catch (error) {
+                console.error('Lỗi khi gọi Gemini:', error);
+                geminiResultDiv.textContent = `Đã xảy ra lỗi khi kết nối với AI. Vui lòng kiểm tra lại cấu hình API Key trên Netlify.\nChi tiết: ${error.message}`;
+            } finally {
+                geminiBtn.disabled = false;
             }
-            const data = await response.json();
-            geminiResultDiv.textContent = data.text;
-        } catch (error) {
-            console.error('Lỗi khi gọi Gemini:', error);
-            geminiResultDiv.textContent = `Đã xảy ra lỗi khi kết nối với AI. Vui lòng kiểm tra lại cấu hình API Key trên Netlify.\nChi tiết: ${error.message}`;
-        } finally {
-            geminiBtn.disabled = false;
-        }
-    });
+        });
+    }
     
     // --- TÍNH NĂNG XUẤT PDF ---
-    printPdfBtn.addEventListener('click', () => {
-        const { jsPDF } = window.jspdf;
-        const invoiceElement = document.getElementById('invoiceToPrint');
-        
-        html2canvas(invoiceElement, { 
-            scale: 2,
-            useCORS: true,
-            onclone: (document) => {
-                // Đảm bảo các nút Xóa không hiển thị trong ảnh chụp màn hình
-                Array.from(document.querySelectorAll('.no-print')).forEach(el => el.style.visibility = 'hidden');
-            }
-        }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    if (printPdfBtn) {
+        printPdfBtn.addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const invoiceElement = document.getElementById('invoiceToPrint');
             
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`hoa-don-${Date.now()}.pdf`);
+            html2canvas(invoiceElement, { 
+                scale: 2,
+                useCORS: true
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save(`hoa-don-${Date.now()}.pdf`);
+            });
         });
-    });
+    }
 
     // --- TÍNH NĂNG LƯU VÀO GOOGLE SHEETS ---
-    const saveToGoogleSheets = async () => {
-        if (GOOGLE_SHEET_WEB_APP_URL === 'PASTE_YOUR_WEB_APP_URL_HERE' || !GOOGLE_SHEET_WEB_APP_URL) {
-            alert('Lỗi Cấu Hình: Bạn chưa dán URL của Google Sheets Web App vào file script.js.');
-            return;
-        }
-        
-        const invoiceData = getInvoiceData();
-        if (!invoiceData.customerName || invoiceData.products.length === 0) {
-            alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm để lưu.');
-            return;
-        }
+    if (saveToSheetBtn) {
+        saveToSheetBtn.addEventListener('click', async () => {
+            if (GOOGLE_SHEET_WEB_APP_URL === 'PASTE_YOUR_WEB_APP_URL_HERE' || !GOOGLE_SHEET_WEB_APP_URL) {
+                alert('Lỗi Cấu Hình: Bạn chưa dán URL của Google Sheets Web App vào file script.js.');
+                return;
+            }
+            
+            const invoiceData = getInvoiceData();
+            if (!invoiceData.customerName || invoiceData.products.length === 0) {
+                alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm để lưu.');
+                return;
+            }
 
-        saveToSheetBtn.disabled = true;
-        saveToSheetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
+            saveToSheetBtn.disabled = true;
+            saveToSheetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
 
-        try {
-            // Google Apps Script có thể gặp lỗi CORS, nhưng fetch vẫn gửi yêu cầu đi.
-            // Chúng ta sẽ giả định yêu cầu đã được gửi và thông báo cho người dùng.
-            fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                method: 'POST',
-                mode: 'no-cors', // Bắt buộc để tránh lỗi CORS chặn request
-                cache: 'no-cache',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(invoiceData),
-                redirect: 'follow',
-            });
-            // Vì dùng 'no-cors', chúng ta không thể chờ 'await' hoặc kiểm tra response.
-            // Nên sẽ hiển thị thông báo ngay lập tức.
-            setTimeout(() => {
-                alert('Yêu cầu lưu đơn hàng đã được gửi đi! Vui lòng kiểm tra file Google Sheets của bạn để xác nhận.');
-                 saveToSheetBtn.disabled = false;
-                 saveToSheet-Btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu vào Google Sheets';
-            }, 1500); // Đợi 1.5 giây để người dùng cảm thấy có độ trễ xử lý
-        } catch (error) {
-            // Báo lỗi nếu fetch bị lỗi ngay từ đầu (vd: sai định dạng URL)
-            console.error('Lỗi khi gửi yêu cầu tới Google Sheets:', error);
-            alert('Đã xảy ra lỗi khi gửi yêu cầu lưu đơn hàng. Vui lòng kiểm tra lại URL Web App.');
-            saveToSheetBtn.disabled = false;
-            saveToSheetBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu vào Google Sheets';
-        }
-    };
-    
-    saveToSheetBtn.addEventListener('click', saveToGoogleSheets);
+            try {
+                fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(invoiceData),
+                    redirect: 'follow',
+                });
+                
+                setTimeout(() => {
+                    alert('Yêu cầu lưu đơn hàng đã được gửi đi! Vui lòng kiểm tra file Google Sheets của bạn để xác nhận.');
+                    saveToSheetBtn.disabled = false;
+                    // *** DÒNG ĐƯỢC SỬA LỖI ĐÁNH MÁY ***
+                    saveToSheetBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu vào Google Sheets';
+                }, 1500);
+            } catch (error) {
+                console.error('Lỗi khi gửi yêu cầu tới Google Sheets:', error);
+                alert('Đã xảy ra lỗi khi gửi yêu cầu lưu đơn hàng. Vui lòng kiểm tra lại URL Web App.');
+                saveToSheetBtn.disabled = false;
+                saveToSheetBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu vào Google Sheets';
+            }
+        });
+    }
 
     // --- HÀM TIỆN ÍCH ---
     const getInvoiceData = () => {
@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const name = row.querySelector('.product-name').value.trim();
             const quantity = parseInt(row.querySelector('.product-quantity').value) || 0;
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
-            if(name && quantity > 0 && price > 0) {
+            if(name && quantity > 0 && price >= 0) { // Chấp nhận cả sản phẩm miễn phí (giá 0)
                  products.push({ name, quantity, price });
                  total += quantity * price;
             }
@@ -212,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    // --- KHỞI TẠO BAN ĐẦU ---
     // Thêm dòng sản phẩm đầu tiên khi tải trang và tính toán lại
     addProductRow();
     updateTotals();
