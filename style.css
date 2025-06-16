@@ -1,0 +1,34 @@
+body {
+    background-color: #f0f2f5;
+}
+
+.invoice-container {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border: none;
+}
+
+/* Căn giữa nút xóa và làm nó nhỏ hơn */
+#productTable .btn-delete {
+    display: block;
+    margin: auto;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.product-image-preview {
+    max-width: 70px;
+    max-height: 70px;
+    display: block;
+    margin: auto;
+    object-fit: cover;
+}
+
+.gemini-result-box {
+    white-space: pre-wrap; /* Giữ lại các xuống dòng của AI */
+    line-height: 1.6;
+}
+
+/* Ẩn input file gốc */
+.product-image-upload {
+    display: none;
+}
