@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             prompt += `\nDựa trên thông tin này, hãy:
 1. Viết một lời cảm ơn ngắn gọn, thân thiện và chuyên nghiệp.
-2. Đề xuất 2 sản phẩm liên quan mà khách hàng có thể thích, kèm lý do ngắn gọn.`;
+2. Đề xuất tất cả sản phẩm liên quan mà khách hàng có mua, kèm lý do ngắn gọn.`;
 
             geminiResultDiv.innerHTML = '<p class="text-muted mb-0"><i class="fa-solid fa-spinner fa-spin"></i> AI đang suy nghĩ, vui lòng chờ...</p>';
             geminiBtn.disabled = true;
