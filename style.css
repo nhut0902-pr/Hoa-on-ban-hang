@@ -21,13 +21,11 @@ body {
     display: block;
     margin: auto;
     object-fit: cover;
-    border-radius: 4px;
 }
 
 .gemini-result-box {
     white-space: pre-wrap; /* Giữ lại các xuống dòng của AI */
     line-height: 1.6;
-    min-height: 100px;
 }
 
 /* Ẩn input file gốc */
@@ -35,16 +33,60 @@ body {
     display: none;
 }
 
-/* Quy tắc này sẽ ẩn tất cả các phần tử có class 'no-print' khi người dùng in hoặc xuất ra PDF */
-@media print {
-    body {
-        background-color: #fff; /* Nền trắng khi in */
-    }
-    .no-print {
-        display: none !important;
-    }
-    .invoice-container {
-        box-shadow: none;
-        border: 1px solid #dee2e6;
-    }
+/* 
+=========================================
+  CSS DÀNH RIÊNG CHO VIỆC TẠO PDF
+  Các style này sẽ được áp dụng cho nội dung HTML được tạo ra để in
+=========================================
+*/
+#pdf-container {
+    font-family: Arial, sans-serif;
+    color: #000;
+    width: 800px; /* Chiều rộng cố định để render nhất quán */
+    padding: 20px;
+    background: #fff;
+}
+#pdf-container .shop-name {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+}
+#pdf-container h2 {
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+#pdf-container .invoice-meta {
+    margin-bottom: 20px;
+}
+#pdf-container table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+#pdf-container th, #pdf-container td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+    vertical-align: middle;
+}
+#pdf-container th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+#pdf-container .text-end { text-align: right; }
+#pdf-container .text-center { text-align: center; }
+#pdf-container .product-image-pdf {
+    max-width: 60px;
+    max-height: 60px;
+    display: block;
+    margin: auto;
+}
+#pdf-container .footer-notes {
+    text-align: center;
+    margin-top: 20px;
+    font-style: italic;
 }
