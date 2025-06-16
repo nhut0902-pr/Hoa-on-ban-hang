@@ -1,6 +1,11 @@
+// File: netlify/functions/call-gemini.js
+
 exports.handler = async function(event) {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+    
+    // *** SỬA LỖI: Đổi tên model thành phiên bản mới nhất và ổn định ***
+    const modelName = 'gemini-1.5-flash-latest';
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
 
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
