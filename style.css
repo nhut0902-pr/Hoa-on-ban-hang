@@ -21,14 +21,30 @@ body {
     display: block;
     margin: auto;
     object-fit: cover;
+    border-radius: 4px;
 }
 
 .gemini-result-box {
     white-space: pre-wrap; /* Giữ lại các xuống dòng của AI */
     line-height: 1.6;
+    min-height: 100px;
 }
 
 /* Ẩn input file gốc */
 .product-image-upload {
     display: none;
+}
+
+/* Quy tắc này sẽ ẩn tất cả các phần tử có class 'no-print' khi người dùng in hoặc xuất ra PDF */
+@media print {
+    body {
+        background-color: #fff; /* Nền trắng khi in */
+    }
+    .no-print {
+        display: none !important;
+    }
+    .invoice-container {
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+    }
 }
