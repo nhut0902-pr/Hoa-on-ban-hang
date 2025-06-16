@@ -8,10 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const printPdfBtn = document.getElementById('printPdfBtn');
     const saveToSheetBtn = document.getElementById('saveToSheetBtn');
 
-    // !!! QUAN TRỌNG: Dán URL của Google Apps Script Web App của bạn vào đây.
-    // !!! URL phải nằm trong cặp dấu nháy đơn ''.
-    const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyz6KE6FWG18ntsE4MEkJmH21hZN-vAgC91myBmTALT33UQFRGAKMgr2wLsHykWHXApig/exec'; 
-
     let productRowCount = 0;
 
     // --- CÁC HÀM XỬ LÝ SẢN PHẨM ---
@@ -23,13 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <td><input type="text" class="form-control product-name" placeholder="Tên sản phẩm"></td>
             <td class="text-center">
                 <input type="file" class="product-image-upload" accept="image/*" id="file-${productRowCount}">
-                <label for="file-${productRowCount}" class="btn btn-sm btn-outline-secondary no-print">Chọn ảnh</label>
+                <label for="file-${productRowCount}" class="btn btn-sm btn-outline-secondary">Chọn ảnh</label>
                 <img class="product-image-preview mt-2" src="" alt="">
             </td>
             <td class="text-center"><input type="number" class="form-control product-quantity" value="1" min="1"></td>
             <td class="text-end"><input type="number" class="form-control product-price" value="0" min="0"></td>
-            <td class="text-end product-subtotal fw-bold">0 VNĐ</td>
-            <td class="text-center"><button class="btn btn-danger btn-sm btn-delete no-print">Xóa</button></td>
+            <td class="text-end product-subtotal">0 VNĐ</td>
+            <td class="text-center"><button class="btn btn-danger btn-delete">Xóa</button></td>
         `;
         productTableBody.appendChild(row);
     };
@@ -45,175 +41,198 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         totalAmountSpan.textContent = `${total.toLocaleString('vi-VN')} VNĐ`;
     };
-    
+
     // --- CÁC HÀM XỬ LÝ SỰ KIỆN ---
-    
-    if (productTableBody) {
-        productTableBody.addEventListener('input', e => {
-            if (e.target.classList.contains('product-quantity') || e.target.classList.contains('product-price')) {
-                updateTotals();
-            }
-        });
 
-        productTableBody.addEventListener('click', e => {
-            if (e.target.classList.contains('btn-delete')) {
-                e.target.closest('tr').remove();
-                updateTotals();
-            }
-        });
-
-        productTableBody.addEventListener('change', e => {
-            if (e.target.classList.contains('product-image-upload')) {
-                const file = e.target.files[0];
-                const preview = e.target.nextElementSibling.nextElementSibling;
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = event => { preview.src = event.target.result; };
-                    reader.readAsDataURL(file);
-                }
-            }
-        });
-    }
-
-    if (addProductBtn) {
-        addProductBtn.addEventListener('click', () => {
-            addProductRow();
+    productTableBody.addEventListener('input', e => {
+        if (e.target.classList.contains('product-quantity') || e.target.classList.contains('product-price')) {
             updateTotals();
-        });
-    }
+        }
+    });
+
+    productTableBody.addEventListener('click', e => {
+        if (e.target.classList.contains('btn-delete')) {
+            e.target.closest('tr').remove();
+            updateTotals();
+        }
+    });
+
+    productTableBody.addEventListener('change', e => {
+        if (e.target.classList.contains('product-image-upload')) {
+            const file = e.target.files[0];
+            const preview = e.target.nextElementSibling.nextElementSibling;
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = event => { preview.src = event.target.result; };
+                reader.readAsDataURL(file);
+            }
+        }
+    });
+
+    addProductBtn.addEventListener('click', addProductRow);
 
     // --- TÍCH HỢP GEMINI AI ---
-    if (geminiBtn) {
-        geminiBtn.addEventListener('click', async () => {
-            const invoiceData = getInvoiceData();
-            if (!invoiceData.customerName || invoiceData.products.length === 0) {
-                alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm.');
-                return;
-            }
-
-            let prompt = `Khách hàng tên là "${invoiceData.customerName}". Họ đã mua các sản phẩm sau:\n`;
-            invoiceData.products.forEach(p => {
-                prompt += `- ${p.name} (số lượng: ${p.quantity})\n`;
-            });
-            prompt += `\nDựa trên thông tin này, hãy:
+    geminiBtn.addEventListener('click', async () => {
+        const invoiceData = getInvoiceData();
+        if (!invoiceData.customerName || invoiceData.products.length === 0) {
+            alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm.');
+            return;
+        }
+        let prompt = `Khách hàng tên là "${invoiceData.customerName}". Họ đã mua các sản phẩm sau:\n`;
+        invoiceData.products.forEach(p => {
+            prompt += `- ${p.name} (số lượng: ${p.quantity})\n`;
+        });
+        prompt += `\nDựa trên thông tin này, hãy:
 1. Viết một lời cảm ơn ngắn gọn, thân thiện và chuyên nghiệp.
-2. Đề xuất tất cả sản phẩm liên quan mà khách hàng có mua, kèm lý do ngắn gọn.`;
+2. Đề xuất 2 sản phẩm liên quan mà khách hàng có thể thích, kèm lý do ngắn gọn.`;
+        geminiResultDiv.innerHTML = '<p class="text-muted mb-0">AI đang suy nghĩ, vui lòng chờ...</p>';
+        geminiBtn.disabled = true;
+        try {
+            const response = await fetch('/.netlify/functions/call-gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            if (!response.ok) throw new Error(`Lỗi từ server: ${response.statusText}`);
+            const data = await response.json();
+            geminiResultDiv.textContent = data.text;
+        } catch (error) {
+            console.error('Lỗi khi gọi Gemini:', error);
+            geminiResultDiv.textContent = 'Đã xảy ra lỗi khi kết nối với AI.';
+        } finally {
+            geminiBtn.disabled = false;
+        }
+    });
 
-            geminiResultDiv.innerHTML = '<p class="text-muted mb-0"><i class="fa-solid fa-spinner fa-spin"></i> AI đang suy nghĩ, vui lòng chờ...</p>';
-            geminiBtn.disabled = true;
+    // --- TÍNH NĂNG XUẤT PDF (PHIÊN BẢN NÂNG CAO - TẠO BẢN SAO SẠCH) ---
+    printPdfBtn.addEventListener('click', () => {
+        printPdfBtn.disabled = true;
+        printPdfBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang tạo...';
 
-            try {
-                const response = await fetch('/.netlify/functions/call-gemini', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({ error: response.statusText }));
-                    throw new Error(`Lỗi từ server: ${errorData.error || response.statusText}`);
-                }
-                const data = await response.json();
-                geminiResultDiv.textContent = data.text;
-            } catch (error) {
-                console.error('Lỗi khi gọi Gemini:', error);
-                geminiResultDiv.textContent = `Đã xảy ra lỗi khi kết nối với AI. Vui lòng kiểm tra lại cấu hình API Key trên Netlify.\nChi tiết: ${error.message}`;
-            } finally {
-                geminiBtn.disabled = false;
+        const invoiceElement = document.getElementById('invoiceToPrint');
+        
+        // 1. Tạo một bản sao của hóa đơn để làm sạch mà không ảnh hưởng bản gốc
+        const clone = invoiceElement.cloneNode(true);
+        clone.style.position = 'absolute';
+        clone.style.left = '-9999px';
+        clone.style.top = '0px';
+        clone.style.width = invoiceElement.offsetWidth + 'px'; // Giữ nguyên chiều rộng
+        document.body.appendChild(clone);
+
+        // 2. Xử lý các ô input: Thay thế chúng bằng giá trị text
+        clone.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+            const parent = input.parentNode;
+            let text;
+            // Định dạng số cho đẹp
+            if (input.classList.contains('product-price')) {
+                 text = document.createTextNode(parseFloat(input.value || 0).toLocaleString('vi-VN'));
+            } else {
+                 text = document.createTextNode(input.value);
+            }
+            parent.replaceChild(text, input);
+        });
+
+        // 3. Xóa tất cả các phần tử không cần thiết trong bản sao
+        clone.querySelectorAll('.btn, .product-image-upload, label[for^="file-"], .gemini-section').forEach(el => el.remove());
+        
+        // 4. Xóa cột "Xóa" khỏi bảng
+        let deleteColumnIndex = -1;
+        clone.querySelectorAll('thead th').forEach((th, index) => {
+            if (th.innerText.trim().toLowerCase() === 'xóa') {
+                deleteColumnIndex = index;
             }
         });
-    }
-    
-    // --- TÍNH NĂNG XUẤT PDF ---
-    if (printPdfBtn) {
-        printPdfBtn.addEventListener('click', () => {
-            const { jsPDF } = window.jspdf;
-            const invoiceElement = document.getElementById('invoiceToPrint');
-            
-            html2canvas(invoiceElement, { 
-                scale: 2,
-                useCORS: true
-            }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`hoa-don-${Date.now()}.pdf`);
+        if (deleteColumnIndex > -1) {
+            clone.querySelectorAll('tr').forEach(row => {
+                row.deleteCell(deleteColumnIndex);
             });
+        }
+        
+        // 5. Chụp ảnh bản sao đã được làm sạch
+        const { jsPDF } = window.jspdf;
+        html2canvas(clone, { scale: 2, useCORS: true }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            let heightLeft = pdfHeight;
+            let position = 0;
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+            heightLeft -= pageHeight;
+            while (heightLeft > 0) {
+                position = heightLeft - pdfHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+                heightLeft -= pageHeight;
+            }
+            pdf.save(`hoa-don-${Date.now()}.pdf`);
+        }).catch(err => {
+            console.error("Lỗi khi tạo PDF:", err);
+            alert("Không thể tạo file PDF.");
+        }).finally(() => {
+            // 6. Xóa bản sao khỏi DOM và khôi phục nút bấm
+            document.body.removeChild(clone);
+            printPdfBtn.disabled = false;
+            printPdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> In / Xuất PDF';
         });
-    }
+    });
+
 
     // --- TÍNH NĂNG LƯU VÀO GOOGLE SHEETS ---
-    if (saveToSheetBtn) {
-        saveToSheetBtn.addEventListener('click', async () => {
-            if (GOOGLE_SHEET_WEB_APP_URL === 'PASTE_YOUR_WEB_APP_URL_HERE' || !GOOGLE_SHEET_WEB_APP_URL) {
-                alert('Lỗi Cấu Hình: Bạn chưa dán URL của Google Sheets Web App vào file script.js.');
-                return;
+    const saveToGoogleSheets = async () => {
+        const invoiceData = getInvoiceData();
+        if (!invoiceData.customerName || invoiceData.products.length === 0) {
+            alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm để lưu.');
+            return;
+        }
+        saveToSheetBtn.disabled = true;
+        saveToSheetBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+        try {
+            const response = await fetch('/.netlify/functions/save-to-sheet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(invoiceData)
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Lỗi không xác định từ server.');
             }
-            
-            const invoiceData = getInvoiceData();
-            if (!invoiceData.customerName || invoiceData.products.length === 0) {
-                alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm để lưu.');
-                return;
-            }
-
-            saveToSheetBtn.disabled = true;
-            saveToSheetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
-
-            try {
-                fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(invoiceData),
-                    redirect: 'follow',
-                });
-                
-                setTimeout(() => {
-                    alert('Yêu cầu lưu đơn hàng đã được gửi đi! Vui lòng kiểm tra file Google Sheets của bạn để xác nhận.');
-                    saveToSheetBtn.disabled = false;
-                    // *** DÒNG ĐƯỢC SỬA LỖI ĐÁNH MÁY ***
-                    saveToSheetBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu vào Google Sheets';
-                }, 1500);
-            } catch (error) {
-                console.error('Lỗi khi gửi yêu cầu tới Google Sheets:', error);
-                alert('Đã xảy ra lỗi khi gửi yêu cầu lưu đơn hàng. Vui lòng kiểm tra lại URL Web App.');
-                saveToSheetBtn.disabled = false;
-                saveToSheetBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu vào Google Sheets';
-            }
-        });
-    }
+            alert('Lưu đơn hàng vào Google Sheets thành công!');
+        } catch (error) {
+            console.error('Lỗi khi lưu vào Google Sheets:', error);
+            alert(`Đã xảy ra lỗi khi lưu đơn hàng: ${error.message}`);
+        } finally {
+            saveToSheetBtn.disabled = false;
+            saveToSheetBtn.innerHTML = '<i class="fas fa-save"></i> Lưu vào Google Sheets';
+        }
+    };
+    saveToSheetBtn.addEventListener('click', saveToGoogleSheets);
 
     // --- HÀM TIỆN ÍCH ---
     const getInvoiceData = () => {
         const customerName = document.getElementById('customerName').value.trim();
-        const customerAddress = document.getElementById('customerAddress').value.trim();
         const products = [];
         let total = 0;
-
         productTableBody.querySelectorAll('tr').forEach(row => {
             const name = row.querySelector('.product-name').value.trim();
             const quantity = parseInt(row.querySelector('.product-quantity').value) || 0;
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
-            if(name && quantity > 0 && price >= 0) { // Chấp nhận cả sản phẩm miễn phí (giá 0)
-                 products.push({ name, quantity, price });
-                 total += quantity * price;
+            if (name && quantity > 0) {
+                products.push({ name, quantity, price });
+                total += quantity * price;
             }
         });
-        
-        return { 
-            createdAt: new Date().toLocaleString('vi-VN'),
-            customerName,
-            customerAddress,
-            products,
-            totalAmount: total.toLocaleString('vi-VN') + ' VNĐ'
+        return {
+            customerName: customerName,
+            customerAddress: document.getElementById('customerAddress').value.trim(),
+            products: products,
+            totalAmount: total.toLocaleString('vi-VN') + ' VNĐ',
+            createdAt: new Date().toLocaleString('vi-VN')
         };
     };
 
-    // --- KHỞI TẠO BAN ĐẦU ---
-    // Thêm dòng sản phẩm đầu tiên khi tải trang và tính toán lại
+    // Thêm dòng sản phẩm đầu tiên khi tải trang
     addProductRow();
-    updateTotals();
 });
