@@ -1,4 +1,4 @@
-// PHIÊN BẢN CUỐI CÙNG - 100% HOÀN CHỈNH
+// PHIÊN BẢN CUỐI CÙNG - ĐÃ SỬA LỖI VÀ HOÀN CHỈNH
 document.addEventListener('DOMContentLoaded', () => {
     // --- KHAI BÁO CÁC BIẾN ---
     const addProductBtn = document.getElementById('addProductBtn');
@@ -79,11 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt })
             });
-            if (!response.ok) {
-                 const errData = await response.json();
-                 throw new Error(errData.error || 'Lỗi không xác định từ server.');
-            }
-            const data = await response.json();
+            const responseText = await response.text();
+            if (!responseText) throw new Error('Server không phản hồi (có thể đã timeout).');
+            const data = JSON.parse(responseText);
+            if (!response.ok) throw new Error(data.error || 'Lỗi không xác định từ server.');
             geminiResultDiv.textContent = data.text;
         } catch (error) {
             console.error('Lỗi khi gọi Gemini:', error);
@@ -93,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- LƯU VÀO GOOGLE SHEETS ---
+    // --- LƯU VÀO GOOGLE SHEETS (Phiên bản chống lỗi JSON) ---
     const saveToGoogleSheets = async () => {
         const invoiceData = getInvoiceData();
         if (!invoiceData.customerName || invoiceData.products.length === 0) {
@@ -108,9 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(invoiceData)
             });
+            const responseText = await response.text();
+            if (!responseText) {
+                throw new Error('Server không phản hồi, có thể đã hết thời gian chờ (timeout).');
+            }
+            const data = JSON.parse(responseText);
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Lỗi không xác định từ server.');
+                throw new Error(data.message || 'Lỗi không xác định từ server.');
             }
             alert('Lưu đơn hàng vào Google Sheets thành công!');
         } catch (error) {
