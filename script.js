@@ -1,4 +1,4 @@
-// --- File script.js phiên bản hoàn chỉnh nhất ---
+// PHIÊN BẢN CUỐI CÙNG - 100% HOÀN CHỈNH
 document.addEventListener('DOMContentLoaded', () => {
     // --- KHAI BÁO CÁC BIẾN ---
     const addProductBtn = document.getElementById('addProductBtn');
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveToSheetBtn = document.getElementById('saveToSheetBtn');
     let productRowCount = 0;
 
-    // --- CÁC HÀM XỬ LÝ SẢN PHẨM (Không đổi) ---
+    // --- CÁC HÀM XỬ LÝ SẢN PHẨM ---
     const addProductRow = () => {
         productRowCount++;
         const row = document.createElement('tr');
@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         productTableBody.appendChild(row);
     };
+
     const updateTotals = () => {
         let total = 0;
         productTableBody.querySelectorAll('tr').forEach(row => {
@@ -40,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         totalAmountSpan.textContent = `${total.toLocaleString('vi-VN')} VNĐ`;
     };
 
-    // --- CÁC HÀM XỬ LÝ SỰ KIỆN (Không đổi) ---
+    // --- CÁC HÀM XỬ LÝ SỰ KIỆN ---
     productTableBody.addEventListener('input', e => {
         if (e.target.classList.contains('product-quantity') || e.target.classList.contains('product-price')) { updateTotals(); }
     });
@@ -56,23 +57,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     addProductBtn.addEventListener('click', addProductRow);
 
-    // --- TÍCH HỢP GEMINI AI (Không đổi) ---
-    geminiBtn.addEventListener('click', async () => { /* ... code không đổi ... */ });
+    // --- TÍCH HỢP GEMINI AI ---
+    geminiBtn.addEventListener('click', async () => {
+        const invoiceData = getInvoiceData();
+        if (!invoiceData.customerName || invoiceData.products.length === 0) {
+            alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm.');
+            return;
+        }
+        let prompt = `Khách hàng tên là "${invoiceData.customerName}". Họ đã mua các sản phẩm sau:\n`;
+        invoiceData.products.forEach(p => {
+            prompt += `- ${p.name} (số lượng: ${p.quantity})\n`;
+        });
+        prompt += `\nDựa trên thông tin này, hãy:
+1. Viết một lời cảm ơn ngắn gọn, thân thiện và chuyên nghiệp.
+2. Đề xuất 2 sản phẩm liên quan mà khách hàng có thể thích, kèm lý do ngắn gọn.`;
+        geminiResultDiv.innerHTML = '<p class="text-muted mb-0">AI đang suy nghĩ, vui lòng chờ...</p>';
+        geminiBtn.disabled = true;
+        try {
+            const response = await fetch('/.netlify/functions/call-gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            if (!response.ok) {
+                 const errData = await response.json();
+                 throw new Error(errData.error || 'Lỗi không xác định từ server.');
+            }
+            const data = await response.json();
+            geminiResultDiv.textContent = data.text;
+        } catch (error) {
+            console.error('Lỗi khi gọi Gemini:', error);
+            geminiResultDiv.textContent = `Đã xảy ra lỗi khi kết nối với AI: ${error.message}`;
+        } finally {
+            geminiBtn.disabled = false;
+        }
+    });
 
-    // --- LƯU VÀO GOOGLE SHEETS (Không đổi) ---
-    const saveToGoogleSheets = async () => { /* ... code không đổi ... */ };
+    // --- LƯU VÀO GOOGLE SHEETS ---
+    const saveToGoogleSheets = async () => {
+        const invoiceData = getInvoiceData();
+        if (!invoiceData.customerName || invoiceData.products.length === 0) {
+            alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm để lưu.');
+            return;
+        }
+        saveToSheetBtn.disabled = true;
+        saveToSheetBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+        try {
+            const response = await fetch('/.netlify/functions/save-to-sheet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(invoiceData)
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Lỗi không xác định từ server.');
+            }
+            alert('Lưu đơn hàng vào Google Sheets thành công!');
+        } catch (error) {
+            console.error('Lỗi khi lưu vào Google Sheets:', error);
+            alert(`Đã xảy ra lỗi khi lưu đơn hàng: ${error.message}`);
+        } finally {
+            saveToSheetBtn.disabled = false;
+            saveToSheetBtn.innerHTML = '<i class="fas fa-save"></i> Lưu vào Google Sheets';
+        }
+    };
     saveToSheetBtn.addEventListener('click', saveToGoogleSheets);
 
-    // --- TÍNH NĂNG XUẤT PDF (NÂNG CẤP LỚN) ---
+    // --- TÍNH NĂNG XUẤT PDF ---
     printPdfBtn.addEventListener('click', () => {
         printPdfBtn.disabled = true;
         printPdfBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang tạo...';
 
-        // 1. Lấy toàn bộ dữ liệu hóa đơn
         const invoiceData = getInvoiceData();
         const invoiceNumber = `HD${Date.now()}`;
-
-        // 2. Tạo HTML cho file PDF một cách linh động
         let productRowsHtml = '';
         invoiceData.products.forEach((p, index) => {
             productRowsHtml += `
@@ -88,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const shopInfo = document.getElementById('shop-info').innerHTML;
-
         const pdfHtml = `
             <div id="pdf-container">
                 ${shopInfo}
@@ -120,14 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // 3. Render HTML ẩn này để html2canvas chụp ảnh
         const tempContainer = document.createElement('div');
         tempContainer.style.position = 'absolute';
         tempContainer.style.left = '-9999px';
         tempContainer.innerHTML = pdfHtml;
         document.body.appendChild(tempContainer);
 
-        // 4. Chụp ảnh và tạo PDF
         const { jsPDF } = window.jspdf;
         const pdfTarget = tempContainer.querySelector('#pdf-container');
         html2canvas(pdfTarget, { scale: 2, useCORS: true }).then(canvas => {
@@ -147,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- HÀM TIỆN ÍCH (CẬP NHẬT ĐỂ LẤY CẢ ẢNH) ---
+    // --- HÀM TIỆN ÍCH (LẤY DỮ LIỆU) ---
     const getInvoiceData = () => {
         const products = [];
         let total = 0;
@@ -155,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const name = row.querySelector('.product-name').value.trim();
             const quantity = parseInt(row.querySelector('.product-quantity').value) || 0;
             const price = parseFloat(row.querySelector('.product-price').value) || 0;
-            const imageSrc = row.querySelector('.product-image-preview').src; // Lấy source của ảnh
+            const imageSrc = row.querySelector('.product-image-preview').src;
             if (name && quantity > 0) {
                 products.push({ name, quantity, price, imageSrc });
                 total += quantity * price;
