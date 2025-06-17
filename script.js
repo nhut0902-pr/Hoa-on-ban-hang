@@ -1,5 +1,9 @@
-// PHIÊN BẢN CUỐI CÙNG - ĐÃ SỬA LỖI VÀ HOÀN CHỈNH
+// PHIÊN BẢN CUỐI CÙNG - GỌI GOOGLE SHEETS TRỰC TIẾP
 document.addEventListener('DOMContentLoaded', () => {
+    // !!! QUAN TRỌNG: Dán URL của Google Apps Script Web App của bạn vào đây.
+    // !!! URL phải nằm trong cặp dấu nháy đơn ''.
+    const GOOGLE_SHEET_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzRnrSw1fwV3KvgBG2HZu5qFD6XXvUR---iK5AQuxv71DF8tUcSIetWFyOaMoMAOXL0/exec';
+
     // --- KHAI BÁO CÁC BIẾN ---
     const addProductBtn = document.getElementById('addProductBtn');
     const productTableBody = document.querySelector('#productTable tbody');
@@ -57,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     addProductBtn.addEventListener('click', addProductRow);
 
-    // --- TÍCH HỢP GEMINI AI ---
+    // --- TÍCH HỢP GEMINI AI (Vẫn dùng Serverless để bảo mật API Key) ---
     geminiBtn.addEventListener('click', async () => {
         const invoiceData = getInvoiceData();
         if (!invoiceData.customerName || invoiceData.products.length === 0) {
@@ -92,8 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- LƯU VÀO GOOGLE SHEETS (Phiên bản chống lỗi JSON) ---
-    const saveToGoogleSheets = async () => {
+    // --- LƯU VÀO GOOGLE SHEETS (Gọi trực tiếp, không qua Serverless) ---
+    const saveToGoogleSheets = (event) => {
+        event.preventDefault(); 
+        if (!GOOGLE_SHEET_WEB_APP_URL || GOOGLE_SHEET_WEB_APP_URL === 'PASTE_YOUR_GOOGLE_SHEET_WEB_APP_URL_HERE') {
+            alert('Lỗi: Bạn chưa cấu hình URL của Google Sheets trong file script.js');
+            return;
+        }
         const invoiceData = getInvoiceData();
         if (!invoiceData.customerName || invoiceData.products.length === 0) {
             alert('Vui lòng nhập tên khách hàng và ít nhất một sản phẩm để lưu.');
@@ -101,28 +110,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         saveToSheetBtn.disabled = true;
         saveToSheetBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
-        try {
-            const response = await fetch('/.netlify/functions/save-to-sheet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(invoiceData)
-            });
-            const responseText = await response.text();
-            if (!responseText) {
-                throw new Error('Server không phản hồi, có thể đã hết thời gian chờ (timeout).');
-            }
-            const data = JSON.parse(responseText);
-            if (!response.ok) {
-                throw new Error(data.message || 'Lỗi không xác định từ server.');
-            }
-            alert('Lưu đơn hàng vào Google Sheets thành công!');
-        } catch (error) {
-            console.error('Lỗi khi lưu vào Google Sheets:', error);
-            alert(`Đã xảy ra lỗi khi lưu đơn hàng: ${error.message}`);
-        } finally {
+        
+        fetch(GOOGLE_SHEET_WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Quan trọng: Lách lỗi CORS
+            body: JSON.stringify(invoiceData) 
+        }).then(() => {
+            alert('Đã gửi yêu cầu lưu đơn hàng! Vui lòng kiểm tra Google Sheets để xác nhận.');
+        }).catch(error => {
+            console.error('Lỗi mạng khi gửi yêu cầu:', error);
+            alert('Đã xảy ra lỗi mạng. Vui lòng thử lại.');
+        }).finally(() => {
             saveToSheetBtn.disabled = false;
             saveToSheetBtn.innerHTML = '<i class="fas fa-save"></i> Lưu vào Google Sheets';
-        }
+        });
     };
     saveToSheetBtn.addEventListener('click', saveToGoogleSheets);
 
