@@ -1,8 +1,7 @@
 // File: netlify/functions/save-to-sheet.js
-// Phiên bản tối ưu chống timeout
+// Phiên bản cuối cùng, chống timeout và xử lý lỗi
 
-// Tăng thời gian chờ cho hàm này lên 25 giây (thay vì 10 giây mặc định)
-// Netlify sẽ ưu tiên giá trị này.
+// Yêu cầu Netlify tăng thời gian chờ cho hàm này lên 25 giây
 exports.config = {
   timeout: 25,
 };
@@ -10,13 +9,12 @@ exports.config = {
 exports.handler = async function(event) {
     const GOOGLE_SHEET_WEB_APP_URL = process.env.GOOGLE_SHEET_WEB_APP_URL;
 
-    // Phải luôn trả về một response, ngay cả khi lỗi
     try {
         if (!GOOGLE_SHEET_WEB_APP_URL) {
             console.error("Lỗi cấu hình: Biến môi trường GOOGLE_SHEET_WEB_APP_URL chưa được thiết lập.");
             return {
                 statusCode: 500,
-                body: JSON.stringify({ message: "Lỗi cấu hình phía server." })
+                body: JSON.stringify({ message: "Lỗi cấu hình phía server: URL của Google Sheets chưa được thiết lập." })
             };
         }
 
@@ -38,7 +36,6 @@ exports.handler = async function(event) {
         } else {
             const errorText = await response.text();
             console.error("Lỗi từ Google Sheets:", errorText);
-            // Trả về lỗi rõ ràng để client có thể đọc được
             return {
                 statusCode: response.status,
                 body: JSON.stringify({ message: `Google Sheets API trả về lỗi: ${response.statusText}` })
