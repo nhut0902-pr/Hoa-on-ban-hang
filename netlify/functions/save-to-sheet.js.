@@ -1,54 +1,51 @@
 // File: netlify/functions/save-to-sheet.js
+// Phiên bản tối ưu chống timeout
+
+// Tăng thời gian chờ cho hàm này lên 25 giây (thay vì 10 giây mặc định)
+// Netlify sẽ ưu tiên giá trị này.
+exports.config = {
+  timeout: 25,
+};
 
 exports.handler = async function(event) {
-    // 1. Lấy URL bí mật của Google Sheets từ Biến Môi Trường trên Netlify.
-    // Đây là cách làm bảo mật, URL không bao giờ bị lộ ra ngoài.
     const GOOGLE_SHEET_WEB_APP_URL = process.env.GOOGLE_SHEET_WEB_APP_URL;
 
-    // Bắt đầu khối try...catch để xử lý lỗi một cách an toàn.
+    // Phải luôn trả về một response, ngay cả khi lỗi
     try {
-        // 2. Kiểm tra xem người dùng đã cấu hình URL trên Netlify chưa.
-        // Nếu chưa, báo lỗi rõ ràng.
         if (!GOOGLE_SHEET_WEB_APP_URL) {
             console.error("Lỗi cấu hình: Biến môi trường GOOGLE_SHEET_WEB_APP_URL chưa được thiết lập.");
             return {
                 statusCode: 500,
-                body: JSON.stringify({ message: "Lỗi cấu hình phía server: URL của Google Sheets chưa được thiết lập." })
+                body: JSON.stringify({ message: "Lỗi cấu hình phía server." })
             };
         }
 
-        // 3. Đảm bảo yêu cầu được gửi lên bằng phương thức POST.
         if (event.httpMethod !== 'POST') {
-            return { statusCode: 405, body: 'Method Not Allowed' };
+            return { statusCode: 405, body: JSON.stringify({ message: 'Method Not Allowed' }) };
         }
 
-        // 4. Gửi tiếp dữ liệu nhận được (nằm trong event.body) đến URL của Google Sheets.
         const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: event.body // Chuyển tiếp toàn bộ nội dung gốc từ trình duyệt
+            headers: { 'Content-Type': 'application/json' },
+            body: event.body
         });
 
-        // 5. Xử lý phản hồi từ Google.
-        // Google Apps Script thường trả về một redirect (302) khi thành công,
-        // nên chúng ta cần kiểm tra cả `response.ok` (cho status 2xx) và `response.redirected`.
         if (response.ok || response.redirected) {
              return {
                 statusCode: 200,
                 body: JSON.stringify({ message: "Lưu thành công!" })
             };
         } else {
-             // Nếu Google trả về lỗi, ghi lại lỗi đó để debug.
             const errorText = await response.text();
             console.error("Lỗi từ Google Sheets:", errorText);
-            throw new Error('Google Sheets API trả về lỗi.');
+            // Trả về lỗi rõ ràng để client có thể đọc được
+            return {
+                statusCode: response.status,
+                body: JSON.stringify({ message: `Google Sheets API trả về lỗi: ${response.statusText}` })
+            };
         }
-
     } catch (error) {
-        // 6. Nếu có bất kỳ lỗi nào xảy ra trong khối `try`, nó sẽ được bắt ở đây.
-        console.error("Lỗi trong hàm save-to-sheet:", error);
+        console.error("Lỗi trong hàm save-to-sheet:", error.message);
         return {
             statusCode: 500,
             body: JSON.stringify({ message: `Lỗi Server Nội bộ: ${error.message}` })
